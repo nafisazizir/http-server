@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		F38784A82C1D42DB00CE4D77 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F38784A72C1D42DB00CE4D77 /* main.cpp */; };
+		F38784B02C1D441B00CE4D77 /* http_server.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F38784AE2C1D441B00CE4D77 /* http_server.cpp */; };
+		F38784B32C1D727900CE4D77 /* http_message.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F38784B12C1D727900CE4D77 /* http_message.cpp */; };
+		F38784B92C1D9B0900CE4D77 /* uri.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F38784B72C1D9B0900CE4D77 /* uri.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +28,12 @@
 /* Begin PBXFileReference section */
 		F38784A42C1D42DB00CE4D77 /* fast-http-server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fast-http-server"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F38784A72C1D42DB00CE4D77 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		F38784AE2C1D441B00CE4D77 /* http_server.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = http_server.cpp; sourceTree = "<group>"; };
+		F38784AF2C1D441B00CE4D77 /* http_server.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = http_server.hpp; sourceTree = "<group>"; };
+		F38784B12C1D727900CE4D77 /* http_message.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = http_message.cpp; sourceTree = "<group>"; };
+		F38784B22C1D727900CE4D77 /* http_message.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = http_message.hpp; sourceTree = "<group>"; };
+		F38784B72C1D9B0900CE4D77 /* uri.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = uri.cpp; sourceTree = "<group>"; };
+		F38784B82C1D9B0900CE4D77 /* uri.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = uri.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +67,12 @@
 			isa = PBXGroup;
 			children = (
 				F38784A72C1D42DB00CE4D77 /* main.cpp */,
+				F38784AE2C1D441B00CE4D77 /* http_server.cpp */,
+				F38784AF2C1D441B00CE4D77 /* http_server.hpp */,
+				F38784B12C1D727900CE4D77 /* http_message.cpp */,
+				F38784B22C1D727900CE4D77 /* http_message.hpp */,
+				F38784B72C1D9B0900CE4D77 /* uri.cpp */,
+				F38784B82C1D9B0900CE4D77 /* uri.hpp */,
 			);
 			path = "fast-http-server";
 			sourceTree = "<group>";
@@ -119,6 +134,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F38784B92C1D9B0900CE4D77 /* uri.cpp in Sources */,
+				F38784B02C1D441B00CE4D77 /* http_server.cpp in Sources */,
+				F38784B32C1D727900CE4D77 /* http_message.cpp in Sources */,
 				F38784A82C1D42DB00CE4D77 /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
