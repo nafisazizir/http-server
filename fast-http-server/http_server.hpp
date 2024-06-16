@@ -11,7 +11,8 @@
 #include <stdio.h>
 #include <string>
 
-#include "http_message.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
 #include "uri.hpp"
 
 namespace http {
