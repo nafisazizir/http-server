@@ -1,2 +1,2 @@
-./build
-./fast-http-server.xcodeproj
+build/
+fast-http-server.xcodeproj/
