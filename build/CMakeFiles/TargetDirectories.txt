@@ -1,0 +1,3 @@
+/Users/nafisaziziriza/Project/fast-http-server/build/CMakeFiles/HttpServer.dir
+/Users/nafisaziziriza/Project/fast-http-server/build/CMakeFiles/edit_cache.dir
+/Users/nafisaziziriza/Project/fast-http-server/build/CMakeFiles/rebuild_cache.dir
