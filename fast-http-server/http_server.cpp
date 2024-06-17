@@ -6,15 +6,19 @@
 //
 
 #include "http_server.hpp"
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
+#include <fcntl.h>
+#include <sys/event.h>
+#include <chrono>
 
 namespace http {
 
-http::HTTPServer::HTTPServer(const std::string& host, std::uint16_t port) : host_(host), port_(port), sock_fd_(0) {
+http::HTTPServer::HTTPServer(const std::string& host, std::uint16_t port) : host_(host), port_(port), sock_fd_(0), running_(false), rng_(static_cast<unsigned int>(std::chrono::steady_clock::now().time_since_epoch().count())), sleep_times_(10, 100) {
     startServer();
 }
 
@@ -34,6 +38,10 @@ void http::HTTPServer::startServer() {
         throw std::runtime_error("Failed set socket options: " + std::string(strerror(errno)));
     }
     
+    if (setSocketNonBlocking(sock_fd_) < 0) {
+        throw std::runtime_error("Failed set socket to non-blocking");
+    }
+    
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(port_);
@@ -42,35 +50,134 @@ void http::HTTPServer::startServer() {
     if (bind(sock_fd_, (sockaddr *)&server_address, sizeof(server_address)) < 0) {
         throw std::runtime_error("Failed bind TCP socket");
     }
-}
-
-void http::HTTPServer::stopServer() {
-    close(sock_fd_);
-    exit(0);
-}
-
-void http::HTTPServer::startListen() {
-    if (listen(sock_fd_, SOMAXCONN) < 0) {
+    
+    if (listen(sock_fd_, K_MAX_EVENTS) < 0) {
         std::ostringstream oss;
         oss << "Failed listen on port " << port_;
         throw std::runtime_error(oss.str());
     }
     
-    std::cout << "Start listening..." << std::endl;
+    setupKqueue();
+    running_ = true;
+    listener_thread_ = std::thread(&HTTPServer::startListen, this);
+    for (int i = 0; i < K_THREAD_SIZE; i++) {
+        worker_threads_[i] = std::thread(&HTTPServer::processEvents, this, i);
+    }
     
+    std::cout << "Start listening..." << std::endl;
+}
+
+void http::HTTPServer::stopServer() {
+    running_ = false;
+    listener_thread_.join();
+    
+    for (int i = 0; i < K_THREAD_SIZE; i++) {
+        worker_threads_[i].join();
+    }
+    
+    for (int i = 0; i < K_THREAD_SIZE; i++) {
+        close(worker_kqueue_fd_[i]);
+    }
+    
+    close(sock_fd_);
+}
+
+int HTTPServer::setSocketNonBlocking(int sock_fd) {
+    int flags = fcntl(sock_fd, F_GETFL, 0);
+    if (flags < 0 || fcntl(sock_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+void HTTPServer::setupKqueue() {
+    for (int i = 0; i < K_THREAD_SIZE; i++) {
+        if ((worker_kqueue_fd_[i] = kqueue()) < 0) {
+            throw std::runtime_error("Failed to create kqueue file descriptor for worker");
+        }
+    }
+}
+
+void http::HTTPServer::startListen() {
     int client_fd;
     struct sockaddr_in client_address;
     socklen_t client_address_len = sizeof(client_address);
+    int current_worker = 0;
+    bool active = true;
     
-    while (true) {
-        client_fd = accept(sock_fd_, (sockaddr *)&client_address, &client_address_len);
+    while (running_) {
+        if (!active) {
+            std::this_thread::sleep_for(std::chrono::microseconds(sleep_times_(rng_)));
+        }
+        
+        client_fd = accept(sock_fd_, (struct sockaddr *)&client_address, &client_address_len);
         if (client_fd < 0) {
+            active = false;
             continue;
         }
         
-        // continue handle client / handle http request
-        handleClient(client_fd);
-        close(client_fd);
+        if (setSocketNonBlocking(client_fd) < 0) {
+            active = false;
+            continue;
+        }
+        
+        active = true;
+        ClientData *client_data = new ClientData(client_fd);
+        controllKqueueEvent(worker_kqueue_fd_[current_worker], EVFILT_READ, EV_ADD | EV_ENABLE, client_fd, client_data);
+        current_worker = (current_worker + 1) % K_THREAD_SIZE;
+    }
+}
+
+void HTTPServer::controllKqueueEvent(int kqueue_fd, int16_t filter, uint16_t flags, int fd, void* udata) {
+    struct kevent event;
+    
+    if (flags & EV_DELETE) {
+        EV_SET(&event, fd, filter, flags, 0, 0, udata);
+    } else {
+        EV_SET(&event, fd, filter, flags, 0, 0, udata);
+    }
+    
+    if (kevent(kqueue_fd, &event, 1, NULL, 0, NULL) < 0) {
+        throw std::runtime_error("Failed to control kqueue event");
+    }
+}
+
+void HTTPServer::processEvents(int worker_id) {
+    struct kevent events[K_MAX_EVENTS];
+    bool active = true;
+
+    while (running_) {
+        if (!active) {
+            std::this_thread::sleep_for(std::chrono::microseconds(sleep_times_(rng_)));
+        }
+
+        // Wait for events
+        int nfds = kevent(worker_kqueue_fd_[worker_id], nullptr, 0, events, K_MAX_EVENTS, nullptr);
+        if (nfds <= 0) {
+            active = false;
+            continue;
+        }
+
+        active = true;
+        for (int i = 0; i < nfds; ++i) {
+            struct kevent &current_event = events[i];
+            ClientData *client_data = reinterpret_cast<ClientData *>(current_event.udata);
+
+            if (current_event.flags & EV_EOF || current_event.flags & EV_ERROR) {
+                // Connection closed or error occurred
+                controllKqueueEvent(worker_kqueue_fd_[worker_id], EVFILT_READ, EV_DELETE, client_data->fd, client_data);
+                close(client_data->fd);
+                delete client_data;
+            } else if (current_event.filter == EVFILT_READ) {
+                // Handle read event
+                handleClient(client_data->fd);
+            } else {
+                // Unexpected event
+                controllKqueueEvent(worker_kqueue_fd_[worker_id], EVFILT_READ, EV_DELETE, client_data->fd, client_data);
+                close(client_data->fd);
+                delete client_data;
+            }
+        }
     }
 }
 
@@ -78,6 +185,7 @@ void HTTPServer::handleClient(int client_fd) {
     // TODO: properly read request from client
     char buffer[1024] = {0};
     long bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+    
     if (bytes_received < 0) {
         std::cout << "Error receiving request from client" << std::endl;
         return; // Failed received data from client
