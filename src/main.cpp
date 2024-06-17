@@ -8,11 +8,12 @@
 #include <iostream>
 #include "http_server.hpp"
 
-int main(int argc, const char * argv[]) {
+int main(int argc, const char *argv[])
+{
     std::string host = "127.0.0.1";
     std::uint16_t port = 8080;
-    http::HTTPServer server = http::HTTPServer(host, port);
+    http::HTTPServer server(host, port);
     server.startListen();
-    
+
     return 0;
 }
